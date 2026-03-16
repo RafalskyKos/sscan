@@ -14,16 +14,16 @@ Run from your project directory:
 
 ```bash
 # All scans
-npx git+ssh://git@github-work:RafalskyKos/sscan.git
+npx git+https://github.com/RafalskyKos/sscan.git
 
 # SAST only (Semgrep)
-npx git+ssh://git@github-work:RafalskyKos/sscan.git sast
+npx git+https://github.com/RafalskyKos/sscan.git sast
 
 # SCA only (Trivy)
-npx git+ssh://git@github-work:RafalskyKos/sscan.git sca
+npx git+https://github.com/RafalskyKos/sscan.git sca
 
 # Check dependencies
-npx git+ssh://git@github-work:RafalskyKos/sscan.git check-deps
+npx git+https://github.com/RafalskyKos/sscan.git check-deps
 ```
 
 ### Custom target path
@@ -31,7 +31,7 @@ npx git+ssh://git@github-work:RafalskyKos/sscan.git check-deps
 By default scans the current directory. Override with:
 
 ```bash
-TARGET_PATH=/path/to/project npx git+ssh://git@github-work:RafalskyKos/sscan.git all
+TARGET_PATH=/path/to/project npx git+https://github.com/RafalskyKos/sscan.git all
 ```
 
 ## Reports
