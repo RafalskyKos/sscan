@@ -12,6 +12,127 @@ const REPORTS_DIR = path.join(TARGET_PATH, "reports");
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
 const green = (s) => `\x1b[32m${s}\x1b[0m`;
 const yellow = (s) => `\x1b[33m${s}\x1b[0m`;
+const dim = (s) => `\x1b[2m${s}\x1b[0m`;
+
+const SEVERITY_LEVELS = ["critical", "high", "medium", "low"];
+
+// --- SARIF severity helpers ---
+
+function getSemgrepSeverity(result, rulesMap) {
+  const rule = rulesMap[result.ruleId];
+  if (!rule) return "medium";
+
+  // Check tags for explicit severity
+  const tags = (rule.properties && rule.properties.tags) || [];
+  for (const tag of tags) {
+    const upper = tag.toUpperCase();
+    if (upper.includes("CRITICAL") && !upper.includes("CONFIDENCE"))
+      return "critical";
+    if (upper.includes("HIGH") && !upper.includes("CONFIDENCE")) return "high";
+    if (upper.includes("MEDIUM") && !upper.includes("CONFIDENCE"))
+      return "medium";
+    if (upper.includes("LOW") && !upper.includes("CONFIDENCE")) return "low";
+  }
+
+  // Fall back to SARIF level
+  const level =
+    (rule.defaultConfiguration && rule.defaultConfiguration.level) || "warning";
+  if (level === "error") return "high";
+  if (level === "warning") return "medium";
+  return "low";
+}
+
+function getTrivySeverity(result, rulesMap) {
+  // Trivy puts security-severity score in rule properties
+  const rule = rulesMap[result.ruleId];
+  if (rule && rule.properties && rule.properties["security-severity"]) {
+    const score = parseFloat(rule.properties["security-severity"]);
+    if (score >= 9.0) return "critical";
+    if (score >= 7.0) return "high";
+    if (score >= 4.0) return "medium";
+    return "low";
+  }
+
+  // Fall back to result level
+  const level = result.level || "warning";
+  if (level === "error") return "high";
+  if (level === "warning") return "medium";
+  return "low";
+}
+
+function splitSarifBySeverity(reportPath, baseName, getSeverityFn) {
+  if (!fs.existsSync(reportPath)) return null;
+
+  const data = JSON.parse(fs.readFileSync(reportPath, "utf8"));
+  const run = data.runs && data.runs[0];
+  if (!run || !run.results || run.results.length === 0) {
+    console.log(dim(`  No findings to split.`));
+    return {};
+  }
+
+  // Build rules map
+  const rules = (run.tool && run.tool.driver && run.tool.driver.rules) || [];
+  const rulesMap = {};
+  for (const rule of rules) {
+    rulesMap[rule.id] = rule;
+  }
+
+  // Group results by severity
+  const groups = { critical: [], high: [], medium: [], low: [] };
+  for (const result of run.results) {
+    const severity = getSeverityFn(result, rulesMap);
+    groups[severity].push(result);
+  }
+
+  // Write separate SARIF files for each non-empty group
+  const summary = {};
+  for (const level of SEVERITY_LEVELS) {
+    if (groups[level].length === 0) continue;
+
+    // Collect only referenced rules
+    const usedRuleIds = new Set(groups[level].map((r) => r.ruleId));
+    const filteredRules = rules.filter((r) => usedRuleIds.has(r.id));
+
+    const splitData = {
+      ...data,
+      runs: [
+        {
+          ...run,
+          results: groups[level],
+          tool: {
+            ...run.tool,
+            driver: { ...run.tool.driver, rules: filteredRules },
+          },
+        },
+      ],
+    };
+
+    const outPath = path.join(REPORTS_DIR, `${baseName}-${level}.sarif`);
+    fs.writeFileSync(outPath, JSON.stringify(splitData, null, 2));
+    summary[level] = groups[level].length;
+  }
+
+  // Remove the original full report
+  fs.rmSync(reportPath, { force: true });
+
+  return summary;
+}
+
+function printSummary(summary, reportBaseName) {
+  if (!summary || Object.keys(summary).length === 0) return;
+
+  console.log("  Results by severity:");
+  for (const level of SEVERITY_LEVELS) {
+    if (!summary[level]) continue;
+    const color = level === "critical" || level === "high" ? red : yellow;
+    console.log(
+      color(`    ${level.toUpperCase()}: ${summary[level]} findings`) +
+        dim(` → reports/${reportBaseName}-${level}.sarif`),
+    );
+  }
+}
+
+// --- Tool checks ---
 
 function checkCommand(name) {
   try {
@@ -43,12 +164,13 @@ function ensureReportsDir() {
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
 }
 
+// --- Scans ---
+
 function runSast() {
   console.log(yellow("Starting SAST scan (Semgrep)..."));
   console.log(`  Target: ${TARGET_PATH}`);
   console.log("  This may take a few minutes...\n");
 
-  // Copy .semgrepignore to target if not present
   const ignoreFile = path.join(TARGET_PATH, ".semgrepignore");
   const ignoreLocalFile = path.join(TARGET_PATH, ".semgrepignore.local");
   let copiedIgnore = false;
@@ -88,12 +210,17 @@ function runSast() {
     // semgrep returns non-zero when findings exist
   }
 
-  // Clean up
   if (copiedIgnore) fs.rmSync(ignoreFile, { force: true });
   if (copiedIgnoreLocal) fs.rmSync(ignoreLocalFile, { force: true });
 
   if (fs.existsSync(reportPath)) {
-    console.log(`\n${green("✓ SAST report saved to reports/gl-sast-report.sarif")}`);
+    console.log(`\n${green("✓ SAST scan complete. Splitting by severity...")}`);
+    const summary = splitSarifBySeverity(
+      reportPath,
+      "gl-sast-report",
+      getSemgrepSeverity,
+    );
+    printSummary(summary, "gl-sast-report");
   } else {
     console.log(
       `\n${yellow("⚠ Warning: SAST report not generated. The scan may have failed.")}`,
@@ -128,14 +255,22 @@ function runSca() {
 
   if (fs.existsSync(reportPath)) {
     console.log(
-      `\n${green("✓ SCA report saved to reports/gl-dependency-scanning-report.sarif")}`,
+      `\n${green("✓ SCA scan complete. Splitting by severity...")}`,
     );
+    const summary = splitSarifBySeverity(
+      reportPath,
+      "gl-dependency-scanning-report",
+      getTrivySeverity,
+    );
+    printSummary(summary, "gl-dependency-scanning-report");
   } else {
     console.log(
       `\n${yellow("⚠ Warning: SCA report not generated. The scan may have failed.")}`,
     );
   }
 }
+
+// --- Help ---
 
 function showHelp() {
   console.log(`Usage: npx sscan [sast|sca|all|check-deps]
@@ -149,10 +284,15 @@ Scan types:
 Environment variables:
   TARGET_PATH  Path to project to scan (default: current directory)
 
-Reports are saved in ./reports/ directory in SARIF format.`);
+Reports are split by severity into separate SARIF files:
+  reports/gl-sast-report-critical.sarif
+  reports/gl-sast-report-high.sarif
+  reports/gl-sast-report-medium.sarif
+  reports/gl-sast-report-low.sarif`);
 }
 
-// Main
+// --- Main ---
+
 const arg = process.argv[2] || "all";
 
 switch (arg) {
