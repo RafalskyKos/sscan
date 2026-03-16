@@ -6,7 +6,7 @@ const path = require("path");
 
 const PACKAGE_DIR = path.resolve(__dirname, "..");
 const TARGET_PATH = process.env.TARGET_PATH || process.cwd();
-const REPORTS_DIR = path.join(TARGET_PATH, "reports");
+const REPORTS_DIR = path.join(TARGET_PATH, "security-scan-reports");
 
 // Colors
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
@@ -127,7 +127,7 @@ function printSummary(summary, reportBaseName) {
     const color = level === "critical" || level === "high" ? red : yellow;
     console.log(
       color(`    ${level.toUpperCase()}: ${summary[level]} findings`) +
-        dim(` → reports/${reportBaseName}-${level}.sarif`),
+        dim(` → security-scan-reports/${reportBaseName}-${level}.sarif`),
     );
   }
 }
@@ -285,10 +285,10 @@ Environment variables:
   TARGET_PATH  Path to project to scan (default: current directory)
 
 Reports are split by severity into separate SARIF files:
-  reports/gl-sast-report-critical.sarif
-  reports/gl-sast-report-high.sarif
-  reports/gl-sast-report-medium.sarif
-  reports/gl-sast-report-low.sarif`);
+  security-scan-reports/gl-sast-report-critical.sarif
+  security-scan-reports/gl-sast-report-high.sarif
+  security-scan-reports/gl-sast-report-medium.sarif
+  security-scan-reports/gl-sast-report-low.sarif`);
 }
 
 // --- Main ---

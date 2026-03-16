@@ -36,9 +36,15 @@ TARGET_PATH=/path/to/project npx git+https://github.com/RafalskyKos/sscan.git al
 
 ## Reports
 
-Reports are saved in `./reports/` in SARIF format:
+Reports are saved in `./security-scan-reports/` in SARIF format, split by severity:
 
-- `reports/gl-sast-report.sarif` — SAST results
-- `reports/gl-dependency-scanning-report.sarif` — SCA results
+- `security-scan-reports/gl-sast-report-critical.sarif`
+- `security-scan-reports/gl-sast-report-high.sarif`
+- `security-scan-reports/gl-sast-report-medium.sarif`
+- `security-scan-reports/gl-sast-report-low.sarif`
+- `security-scan-reports/gl-dependency-scanning-report-critical.sarif`
+- `security-scan-reports/gl-dependency-scanning-report-high.sarif`
+- `security-scan-reports/gl-dependency-scanning-report-medium.sarif`
+- `security-scan-reports/gl-dependency-scanning-report-low.sarif`
 
-SARIF files can be viewed in VS Code with the SARIF Viewer extension.
+Only files with findings are created. SARIF files can be viewed in VS Code with the SARIF Viewer extension.
