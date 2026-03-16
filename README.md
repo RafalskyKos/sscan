@@ -1,52 +1,42 @@
-# Security Scan Local (without Docker)
+# sscan — Security Scan (without Docker)
 
-Local security scanning — SAST (Semgrep) and SCA (Trivy) — without Docker.
+Local security scanning — SAST (Semgrep) and SCA (Trivy) — no Docker required.
 
 ## Prerequisites
-
-Install the required tools:
 
 ```bash
 brew install semgrep trivy
 ```
 
-Verify installation:
+## Usage via npx
+
+Run from your project directory:
 
 ```bash
-npm run check-deps
-```
+# All scans
+npx git+ssh://git@github-work:RafalskyKos/sscan.git
 
-## Usage
+# SAST only (Semgrep)
+npx git+ssh://git@github-work:RafalskyKos/sscan.git sast
 
-Run all scans:
+# SCA only (Trivy)
+npx git+ssh://git@github-work:RafalskyKos/sscan.git sca
 
-```bash
-npm run scan:all
-```
-
-Run only SAST (Semgrep):
-
-```bash
-npm run scan:sast
-```
-
-Run only SCA (Trivy):
-
-```bash
-npm run scan:sca
+# Check dependencies
+npx git+ssh://git@github-work:RafalskyKos/sscan.git check-deps
 ```
 
 ### Custom target path
 
-By default scans the parent directory (`..`). Override with:
+By default scans the current directory. Override with:
 
 ```bash
-TARGET_PATH=/path/to/project npm run scan:all
+TARGET_PATH=/path/to/project npx git+ssh://git@github-work:RafalskyKos/sscan.git all
 ```
 
 ## Reports
 
-Reports are saved in `reports/` in SARIF format:
+Reports are saved in `./reports/` in SARIF format:
 
 - `reports/gl-sast-report.sarif` — SAST results
 - `reports/gl-dependency-scanning-report.sarif` — SCA results

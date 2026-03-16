@@ -1,0 +1,71 @@
+# NOTE: We include a local semgrepignore file in order to provide consistent behaviour.
+#
+#       If we don't provide a local semgrepignore file, then the upstream .semgrepignore file
+#       https://github.com/semgrep/semgrep/blob/develop/cli/src/semgrep/templates/.semgrepignore
+#       will be used by default, which we have no control over, so it's possible for it to introduce
+#       a breaking change.
+#
+#       For example, the current upstream .semgrepignore file
+#       https://github.com/semgrep/semgrep/blob/f3693be7/cli/src/semgrep/templates/.semgrepignore#L18
+#       includes the pattern `testsuite/`, whereas this local file does not. This means that if we
+#       were to remove this local `semgrepignore` file (or replace it with the upstream .semgrepignore
+#       file), the upstream .semgrepignore file will be used instead and vulnerabilities that had
+#       previously been detected in the `testsuite/` directory will now be ignored, which is a breaking change.
+
+# Paths added to this file will be ignored by Semgrep. You
+# may also use "SAST_EXCLUDED_PATHS" GitLab CI variable (https://docs.gitlab.com/ee/user/application_security/sast/#vulnerability-filters) to exclude additional paths from being scanned.
+#
+# -----------------------------------------------------------------
+#
+# File Reference: https://github.com/semgrep/semgrep/blob/develop/cli/src/semgrep/templates/.semgrepignore
+#
+# This file uses .gitignore syntax:
+#
+# To ignore a file anywhere it occurs in your project, enter a
+# glob pattern here. E.g. "*.min.js".
+#
+# To ignore a directory anywhere it occurs in your project, add
+# a trailing slash to the file name. E.g. "dist/".
+#
+# To ignore a file or directory only relative to the project root,
+# include a slash anywhere except the last character. E.g.
+# "/dist/", or "src/generated".
+#
+# Some parts of .gitignore syntax are not supported, and patterns
+# using this syntax will be dropped from the ignore list:
+# - Explicit "include syntax", e.g. "!kept/".
+# - Multi-character expansion syntax, e.g. "*.py[cod]"
+# To include ignore patterns from another file, start a line
+# with ':include', followed by the path of the file. E.g.
+# ":include path/to/other/ignore/file".
+# UPDATE: this will not be be needed in osemgrep which supports
+# all of the .gitignore syntax (!kept/, *.py[cod])
+#
+# To ignore a file with a literal ':' character, escape it with
+# a backslash, e.g. "\:foo".
+#
+
+# Ignore git items
+.gitignore
+.git/
+
+# Common large paths
+node_modules/
+build/
+dist/
+vendor/
+.env/
+.venv/
+.tox/
+*.min.js
+
+# Semgrep rules folder
+.semgrep
+
+# Semgrep-action log folder
+.semgrep_logs/
+
+# In addition to this file, Semgrep scanner also considers the
+# paths specified in the .semgrepignore file located in the project's
+# root repository, if it is defined, for exclusion.
+:include .semgrepignore.local

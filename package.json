@@ -1,0 +1,15 @@
+{
+  "name": "sscan",
+  "version": "1.0.0",
+  "description": "Local security scanning tools (SAST with Semgrep, SCA with Trivy) — no Docker required",
+  "bin": {
+    "sscan": "./bin/scan.js"
+  },
+  "scripts": {
+    "scan:sast": "node bin/scan.js sast",
+    "scan:sca": "node bin/scan.js sca",
+    "scan:all": "node bin/scan.js all",
+    "check-deps": "node bin/scan.js check-deps"
+  },
+  "license": "UNLICENSED"
+}

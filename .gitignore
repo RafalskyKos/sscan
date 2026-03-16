@@ -1,0 +1,3 @@
+node_modules/
+reports/gl-sast-report.sarif
+reports/gl-dependency-scanning-report.sarif
