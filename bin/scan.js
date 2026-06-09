@@ -5,8 +5,10 @@ const fs = require("fs");
 const path = require("path");
 
 const PACKAGE_DIR = path.resolve(__dirname, "..");
-const TARGET_PATH = process.env.TARGET_PATH || process.cwd();
-const REPORTS_DIR = path.join(TARGET_PATH, "security-scan-reports");
+const RUN_DIR = process.cwd();
+const REPORTS_DIR_NAME = ".security-scan-reports";
+const TARGET_PATH = getTargetPath();
+const REPORTS_DIR = path.join(RUN_DIR, REPORTS_DIR_NAME);
 
 // Colors
 const red = (s) => `\x1b[31m${s}\x1b[0m`;
@@ -15,6 +17,21 @@ const yellow = (s) => `\x1b[33m${s}\x1b[0m`;
 const dim = (s) => `\x1b[2m${s}\x1b[0m`;
 
 const SEVERITY_LEVELS = ["critical", "high", "medium", "low"];
+
+// --- Path helpers ---
+
+function getTargetPath() {
+  if (process.env.TARGET_PATH) return path.resolve(process.env.TARGET_PATH);
+
+  let dir = RUN_DIR;
+  while (true) {
+    if (path.basename(dir) === "app") return path.dirname(dir);
+
+    const parent = path.dirname(dir);
+    if (parent === dir) return RUN_DIR;
+    dir = parent;
+  }
+}
 
 // --- SARIF severity helpers ---
 
@@ -67,6 +84,7 @@ function splitSarifBySeverity(reportPath, baseName, getSeverityFn) {
   const run = data.runs && data.runs[0];
   if (!run || !run.results || run.results.length === 0) {
     console.log(dim(`  No findings to split.`));
+    fs.rmSync(reportPath, { force: true });
     return {};
   }
 
@@ -127,7 +145,7 @@ function printSummary(summary, reportBaseName) {
     const color = level === "critical" || level === "high" ? red : yellow;
     console.log(
       color(`    ${level.toUpperCase()}: ${summary[level]} findings`) +
-        dim(` → security-scan-reports/${reportBaseName}-${level}.sarif`),
+        dim(` → ${REPORTS_DIR_NAME}/${reportBaseName}-${level}.sarif`),
     );
   }
 }
@@ -160,15 +178,49 @@ function checkDeps() {
   return true;
 }
 
-function ensureReportsDir() {
+function prepareReportsDir() {
+  if (fs.existsSync(REPORTS_DIR)) {
+    console.log(dim(`Removing old reports: ${REPORTS_DIR}`));
+    fs.rmSync(REPORTS_DIR, { recursive: true, force: true });
+  }
+
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
+}
+
+function ensureReportsGitignore() {
+  const gitignorePath = path.join(RUN_DIR, ".gitignore");
+  const entryRegex = /(^|\r?\n)\.security-scan-reports\/?(\r?\n|$)/;
+
+  if (fs.existsSync(gitignorePath)) {
+    const content = fs.readFileSync(gitignorePath, "utf8");
+    if (entryRegex.test(content)) return;
+
+    const prefix = content.endsWith("\n") ? "\n" : "\n\n";
+    fs.appendFileSync(
+      gitignorePath,
+      `${prefix}## Security Reports:\n${REPORTS_DIR_NAME}\n`,
+    );
+    return;
+  }
+
+  fs.writeFileSync(
+    gitignorePath,
+    `## Security Reports:\n${REPORTS_DIR_NAME}\n`,
+  );
+}
+
+function prepareScan() {
+  ensureReportsGitignore();
+  prepareReportsDir();
 }
 
 // --- Scans ---
 
 function runSast() {
   console.log(yellow("Starting SAST scan (Semgrep)..."));
+  console.log(`  Started from: ${RUN_DIR}`);
   console.log(`  Target: ${TARGET_PATH}`);
+  console.log(`  Reports: ${REPORTS_DIR}`);
   console.log("  This may take a few minutes...\n");
 
   const ignoreFile = path.join(TARGET_PATH, ".semgrepignore");
@@ -230,7 +282,9 @@ function runSast() {
 
 function runSca() {
   console.log(yellow("Starting SCA scan (Trivy)..."));
+  console.log(`  Started from: ${RUN_DIR}`);
   console.log(`  Target: ${TARGET_PATH}`);
+  console.log(`  Reports: ${REPORTS_DIR}`);
   console.log("  This may take a few minutes...\n");
 
   const reportPath = path.join(
@@ -282,13 +336,17 @@ Scan types:
   check-deps   Check if required tools are installed
 
 Environment variables:
-  TARGET_PATH  Path to project to scan (default: current directory)
+  TARGET_PATH  Path to project to scan
+
+Default target:
+  If launched inside an app directory, scans the parent project directory.
+  Otherwise scans the current directory.
 
 Reports are split by severity into separate SARIF files:
-  security-scan-reports/gl-sast-report-critical.sarif
-  security-scan-reports/gl-sast-report-high.sarif
-  security-scan-reports/gl-sast-report-medium.sarif
-  security-scan-reports/gl-sast-report-low.sarif`);
+  .security-scan-reports/gl-sast-report-critical.sarif
+  .security-scan-reports/gl-sast-report-high.sarif
+  .security-scan-reports/gl-sast-report-medium.sarif
+  .security-scan-reports/gl-sast-report-low.sarif`);
 }
 
 // --- Main ---
@@ -298,21 +356,21 @@ const arg = process.argv[2] || "all";
 switch (arg) {
   case "sast":
     if (checkDeps()) {
-      ensureReportsDir();
+      prepareScan();
       runSast();
       console.log("\nSAST scan completed!");
     }
     break;
   case "sca":
     if (checkDeps()) {
-      ensureReportsDir();
+      prepareScan();
       runSca();
       console.log("\nSCA scan completed!");
     }
     break;
   case "all":
     if (checkDeps()) {
-      ensureReportsDir();
+      prepareScan();
       runSast();
       console.log();
       runSca();
