@@ -55,9 +55,5 @@ Reports are saved in `./.security-scan-reports/` in SARIF format, split by sever
 
 Only files with findings are created. SARIF files can be viewed in VS Code with the SARIF Viewer extension.
 
-The script also creates or updates `.gitignore` in the launch directory with:
-
-```gitignore
-## Security Reports:
-.security-scan-reports
-```
+The reports directory contains its own `.gitignore` (`*`), so git never picks up
+the reports. The project's `.gitignore` is not modified.

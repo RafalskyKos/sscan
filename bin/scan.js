@@ -185,32 +185,12 @@ function prepareReportsDir() {
   }
 
   fs.mkdirSync(REPORTS_DIR, { recursive: true });
-}
-
-function ensureReportsGitignore() {
-  const gitignorePath = path.join(RUN_DIR, ".gitignore");
-  const entryRegex = /(^|\r?\n)\.security-scan-reports\/?(\r?\n|$)/;
-
-  if (fs.existsSync(gitignorePath)) {
-    const content = fs.readFileSync(gitignorePath, "utf8");
-    if (entryRegex.test(content)) return;
-
-    const prefix = content.endsWith("\n") ? "\n" : "\n\n";
-    fs.appendFileSync(
-      gitignorePath,
-      `${prefix}## Security Reports:\n${REPORTS_DIR_NAME}\n`,
-    );
-    return;
-  }
-
-  fs.writeFileSync(
-    gitignorePath,
-    `## Security Reports:\n${REPORTS_DIR_NAME}\n`,
-  );
+  // Self-ignoring reports dir: git never picks up the reports, and the
+  // project's own .gitignore is left untouched.
+  fs.writeFileSync(path.join(REPORTS_DIR, ".gitignore"), "*\n");
 }
 
 function prepareScan() {
-  ensureReportsGitignore();
   prepareReportsDir();
 }
 
